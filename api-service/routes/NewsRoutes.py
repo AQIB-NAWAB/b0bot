@@ -2,10 +2,9 @@ import json
 import os
 
 import redis
-from flask import Blueprint, g, jsonify, render_template, request
+from flask import Blueprint, jsonify, render_template, request
 
 from agents.notification import KNOWN_INTEREST_TAGS
-from controllers.NewsController import NewsController
 from models.NewsModel import CybernewsDB
 from models.SourceModel import SourceDB
 from models.SubscriberModel import SubscriberDB
@@ -49,59 +48,11 @@ def home_route():
     return render_template("landing.html")
 
 """
-set route for different LLM models
-"""
-@routes.route("/<llm_name>", methods=["GET"])
-def set_llm_route(llm_name):
-    if llm_name == "favicon.ico":
-        return "", 204
-    g.news_controller = NewsController(llm_name)
-    return render_template("llm.html", llm_name=llm_name)
-
-"""
-return news without considering keywords
-"""
-@routes.route("/<llm_name>/news", methods=["GET"])
-def getNews_route(llm_name):
-    g.news_controller = NewsController(llm_name)
-    news = g.news_controller.getNews()
-    return render_template("news.html", data=news)
-
-"""
-return news based on certain keywords
-"""
-@routes.route("/<llm_name>/news_keywords", methods=["GET"])
-def getNewsWithKeywords_route(llm_name):
-    g.news_controller = NewsController(llm_name)
-    user_keywords = request.args.getlist("keywords")
-    data = g.news_controller.getNewsWithKeywords(user_keywords[0])
-    return render_template("news_key.html", data=data, keyword=user_keywords[0])
-
-"""
-return news without considering keywords (NO LLM)
-"""
-@routes.route("/raw/news", methods=["GET"])
-def getNews_raw_route():
-    g.news_controller = NewsController(None)
-    news = g.news_controller.getNews()
-    return render_template("news.html", data=news, llm_name="raw")
-
-"""
-return news based on certain keywords (NO LLM)
-"""
-@routes.route("/raw/news_keywords", methods=["GET"])
-def getNewsWithKeywords_raw_route():
-    g.news_controller = NewsController(None)
-    user_keywords = request.args.getlist("keywords")
-    data = g.news_controller.getNewsWithKeywords(user_keywords[0])
-    return render_template("news_key.html", data=data, keyword=user_keywords[0], llm_name="raw")
-
-"""
 deal requests with wrong route
 """
 @routes.errorhandler(404)
 def notFound_route(error):
-    g.news_controller.notFound(error)
+    return jsonify({"error": "not found"}), 404
 
 """
 health check route
@@ -144,7 +95,7 @@ def dashboard_route():
 
 """
 sources page - GET lists sources, POST adds a new one (pending until
-ingestion-service reads from this table instead of the hardcoded RSS_FEEDS list)
+marked active in the database; ingestion-service polls active rows)
 """
 source_db = SourceDB()
 @routes.route("/sources", methods=["GET"])
